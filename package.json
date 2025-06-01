@@ -1,0 +1,30 @@
+{
+  "name": "ai-doc",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "serve:local": "concurrently \"firebase emulators:start --only functions,firestore,storage --project gressusapp\" \"npm --prefix frontend run dev -- --port 5174\"",
+    "build:functions": "cd functions && npm run build",
+    "deploy": "firebase deploy --only functions --project gressusapp",
+    "setup:env": "cd functions && firebase functions:config:get > .runtimeconfig.json",
+    "start": "npm run setup:env && npm run serve:local"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CaPerez17/AI-Doc.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/CaPerez17/AI-Doc/issues"
+  },
+  "homepage": "https://github.com/CaPerez17/AI-Doc#readme",
+  "devDependencies": {
+    "@tailwindcss/nesting": "^0.0.0-insiders.565cd3e",
+    "@tailwindcss/postcss": "^4.1.8",
+    "concurrently": "^9.1.2"
+  }
+}
