@@ -1,7 +1,8 @@
 import * as functions from 'firebase-functions';
 import OpenAI from 'openai';
 import { z } from 'zod';
-import { compose, withCors, withErrorHandling, withMetrics, withValidation } from './utils/middleware';
+import { compose, withCors, withErrorHandling, withValidation } from './utils/middleware';
+import { withMetrics, tokensToUsd } from './utils/metrics';
 
 // Obtener la API key de la configuración de Firebase Functions
 const apiKey = functions.config().openai?.key;
@@ -21,6 +22,8 @@ const diagnosisSchema = z.object({
 });
 
 const handler = functions.https.onRequest(async (req, res) => {
+  console.log('[diagnosis] incoming body =', req.body);
+  
   const { medical_info } = req.body;
 
   const completion = await openai.chat.completions.create({
@@ -55,7 +58,13 @@ Responde en formato JSON con esta estructura:
     max_tokens: 800
   });
 
+  // Capture tokens and cost for metrics
+  const tokens = completion.usage?.total_tokens ?? 0;
+  const costUsd = tokensToUsd(tokens);
+  res.locals.usage = { tokens, costUsd };
+
   const diagnosis_result = completion.choices[0].message.content;
+  console.log('[diagnosis] result =', diagnosis_result);
   
   try {
     const parsedDiagnosis = JSON.parse(diagnosis_result || '{}');
@@ -78,6 +87,6 @@ Responde en formato JSON con esta estructura:
 export const generateDiagnosis = compose(
   withCors,
   withErrorHandling,
-  (fn) => withMetrics(fn, 'generateDiagnosis'),
+  withMetrics('generateDiagnosis'),
   withValidation(diagnosisSchema)
 )(handler); 

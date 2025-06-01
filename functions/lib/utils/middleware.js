@@ -36,10 +36,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.compose = exports.withMetrics = exports.withErrorHandling = exports.withValidation = exports.withCors = void 0;
+exports.compose = exports.withErrorHandling = exports.withValidation = exports.withCors = void 0;
 const cors_1 = __importDefault(require("cors"));
 const functions = __importStar(require("firebase-functions"));
-const prom_client_1 = require("prom-client");
 // CORS wrapper
 const corsHandler = (0, cors_1.default)({ origin: true });
 const withCors = (handler) => functions.https.onRequest((req, res) => corsHandler(req, res, () => handler(req, res)));
@@ -68,26 +67,6 @@ const withErrorHandling = (handler) => functions.https.onRequest(async (req, res
     }
 });
 exports.withErrorHandling = withErrorHandling;
-// Metrics (latency + tokens + cost)
-const latency = new prom_client_1.Histogram({
-    name: 'function_latency_ms',
-    help: 'Execution time per function',
-    labelNames: ['name'],
-});
-const cost = new prom_client_1.Counter({
-    name: 'openai_cost_usd',
-    help: 'Estimated OpenAI cost in USD',
-});
-const withMetrics = (handler, name) => functions.https.onRequest(async (req, res) => {
-    var _a;
-    const end = latency.startTimer({ name });
-    await handler(req, res);
-    end();
-    if ((_a = res.locals) === null || _a === void 0 ? void 0 : _a.usdCost) {
-        cost.inc(res.locals.usdCost);
-    }
-});
-exports.withMetrics = withMetrics;
 // Helper to compose easily
 const compose = (...layers) => (core) => layers.reduceRight((fn, layer) => layer(fn), core);
 exports.compose = compose;

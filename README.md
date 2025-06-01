@@ -146,6 +146,58 @@ export const myFunction = withMiddleware(async (req, res) => {
 });
 ```
 
+### Metrics and Performance Monitoring
+
+The application includes a comprehensive metrics system that tracks performance, usage, and costs:
+
+#### Features
+
+1. **Performance Metrics**: Function execution time tracking using Prometheus histograms
+2. **Token Usage Tracking**: OpenAI API token consumption monitoring per endpoint
+3. **Cost Estimation**: Real-time cost calculation based on token usage ($0.002 per 1K tokens)
+4. **Firestore Logging**: Persistent storage of all metrics data with timestamps
+5. **Automatic Integration**: Seamless integration with existing middleware layer
+
+#### Design Decisions
+
+- **Prometheus Metrics**: Industry-standard metrics format for potential integration with monitoring systems
+- **Middleware Pattern**: `withMetrics()` wrapper provides non-intrusive metrics collection
+- **Cost Transparency**: Real-time cost tracking helps manage OpenAI API expenses
+- **Centralized Logging**: All function invocations logged to Firestore `logs` collection for analysis
+- **Error Resilience**: Metrics failures don't affect core function operation
+
+#### Implementation
+
+Functions are wrapped with the metrics middleware:
+
+```typescript
+import { withMetrics } from "./utils/metrics";
+
+export const extractMedicalData = withMetrics('extract')(
+  withMiddleware(async (req, res) => {
+    // Core function logic
+    const usage = { tokens: completion.usage?.total_tokens || 0, costUsd: tokensToUsd(tokens) };
+    res.locals.usage = usage; // Pass metrics to middleware
+  })
+);
+```
+
+#### Metrics Schema
+
+Each function call generates a log entry in Firestore:
+
+```json
+{
+  "endpoint": "extract",
+  "ms": 1234,
+  "tokens": 150,
+  "costUsd": 0.0003,
+  "timestamp": "2025-01-01T12:00:00Z"
+}
+```
+
+This enables cost analysis, performance optimization, and usage pattern understanding.
+
 ## Folder Structure
 
 | Directory         | Purpose                                     |

@@ -42,6 +42,7 @@ const functions = __importStar(require("firebase-functions"));
 const openai_1 = __importDefault(require("openai"));
 const zod_1 = require("zod");
 const middleware_1 = require("./utils/middleware");
+const metrics_1 = require("./utils/metrics");
 // Obtener la API key de la configuración de Firebase Functions
 const apiKey = (_a = functions.config().openai) === null || _a === void 0 ? void 0 : _a.key;
 if (!apiKey) {
@@ -56,6 +57,8 @@ const extractSchema = zod_1.z.object({
     text: zod_1.z.string().min(1, 'Text is required')
 });
 const handler = functions.https.onRequest(async (req, res) => {
+    var _a, _b;
+    console.log('[extract] incoming body =', req.body);
     const { text } = req.body;
     const completion = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
@@ -83,6 +86,10 @@ Responde únicamente con el JSON, sin explicaciones adicionales.`
         temperature: 0.3,
         max_tokens: 500
     });
+    // Capture tokens and cost for metrics
+    const tokens = (_b = (_a = completion.usage) === null || _a === void 0 ? void 0 : _a.total_tokens) !== null && _b !== void 0 ? _b : 0;
+    const costUsd = (0, metrics_1.tokensToUsd)(tokens);
+    res.locals.usage = { tokens, costUsd };
     const extracted_info = completion.choices[0].message.content;
     try {
         const parsedInfo = JSON.parse(extracted_info || '{}');
@@ -103,5 +110,5 @@ Responde únicamente con el JSON, sin explicaciones adicionales.`
         });
     }
 });
-exports.extractMedicalData = (0, middleware_1.compose)(middleware_1.withCors, middleware_1.withErrorHandling, (fn) => (0, middleware_1.withMetrics)(fn, 'extractMedicalData'), (0, middleware_1.withValidation)(extractSchema))(handler);
+exports.extractMedicalData = (0, middleware_1.compose)(middleware_1.withCors, middleware_1.withErrorHandling, (0, metrics_1.withMetrics)('extractMedicalData'), (0, middleware_1.withValidation)(extractSchema))(handler);
 //# sourceMappingURL=extract.js.map

@@ -43,6 +43,7 @@ const openai_1 = __importDefault(require("openai"));
 const axios_1 = __importDefault(require("axios"));
 const zod_1 = require("zod");
 const middleware_1 = require("./utils/middleware");
+const metrics_1 = require("./utils/metrics");
 // Obtener la API key de la configuración de Firebase Functions
 const apiKey = (_a = functions.config().openai) === null || _a === void 0 ? void 0 : _a.key;
 if (!apiKey) {
@@ -77,6 +78,12 @@ const handler = functions.https.onRequest(async (req, res) => {
         file: audioFile,
         model: "whisper-1",
     });
+    // Estimate usage for Whisper (approximation, Whisper pricing is per minute)
+    // For demo purposes, we'll use a simple heuristic
+    const estimatedTokens = Math.ceil(transcription.text.length / 4); // rough approximation
+    const costUsd = (0, metrics_1.tokensToUsd)(estimatedTokens);
+    res.locals.usage = { tokens: estimatedTokens, costUsd };
+    console.log('[transcribe] transcript =', transcription.text);
     // Return structured response
     res.json({
         success: true,
@@ -85,5 +92,5 @@ const handler = functions.https.onRequest(async (req, res) => {
         }
     });
 });
-exports.transcribeAudio = (0, middleware_1.compose)(middleware_1.withCors, middleware_1.withErrorHandling, (fn) => (0, middleware_1.withMetrics)(fn, 'transcribeAudio'), (0, middleware_1.withValidation)(transcribeSchema))(handler);
+exports.transcribeAudio = (0, middleware_1.compose)(middleware_1.withCors, middleware_1.withErrorHandling, (0, metrics_1.withMetrics)('transcribeAudio'), (0, middleware_1.withValidation)(transcribeSchema))(handler);
 //# sourceMappingURL=transcribe.js.map

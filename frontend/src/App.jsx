@@ -59,11 +59,12 @@ function App() {
         });
         if (!transcriptResponse.ok) throw new Error(`Error transcribiendo: ${transcriptResponse.statusText}`);
         const transcriptData = await transcriptResponse.json();
-        setTranscript(transcriptData.transcript);
-        transcriptText = transcriptData.transcript;
+        setTranscript(transcriptData.data.transcript);
+        transcriptText = transcriptData.data.transcript;
       }
 
       console.log('📞 Llamando a extractMedicalData');
+      console.log('[frontend] payload to extract', JSON.stringify({ text: transcriptText }));
       const extractResponse = await fetch(`${API_URL}/extractMedicalData`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -71,17 +72,19 @@ function App() {
       });
       if (!extractResponse.ok) throw new Error(`Error extrayendo datos: ${extractResponse.statusText}`);
       const extractData = await extractResponse.json();
-      setExtracted(extractData.extracted_info);
+      setExtracted(extractData.data.extracted_info);
 
       console.log('📞 Llamando a generateDiagnosis');
+      console.log('[frontend] payload to diagnosis', JSON.stringify({ medical_info: extractData.data.extracted_info }));
       const diagnoseResponse = await fetch(`${API_URL}/generateDiagnosis`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ medical_info: extractData.extracted_info }),
+        body: JSON.stringify({ medical_info: extractData.data.extracted_info }),
       });
       if (!diagnoseResponse.ok) throw new Error(`Error en el diagnóstico: ${diagnoseResponse.statusText}`);
       const diagnoseData = await diagnoseResponse.json();
-      setDiagnosis(diagnoseData);
+      console.log('[frontend] diagnosis response =', diagnoseData);
+      setDiagnosis(diagnoseData.data);
 
     } catch (err) {
       console.error('❌ Error en handleProcess:', err);

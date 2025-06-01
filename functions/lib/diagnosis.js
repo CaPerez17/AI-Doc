@@ -42,6 +42,7 @@ const functions = __importStar(require("firebase-functions"));
 const openai_1 = __importDefault(require("openai"));
 const zod_1 = require("zod");
 const middleware_1 = require("./utils/middleware");
+const metrics_1 = require("./utils/metrics");
 // Obtener la API key de la configuración de Firebase Functions
 const apiKey = (_a = functions.config().openai) === null || _a === void 0 ? void 0 : _a.key;
 if (!apiKey) {
@@ -56,6 +57,8 @@ const diagnosisSchema = zod_1.z.object({
     medical_info: zod_1.z.object({}).passthrough() // Allow any medical info object
 });
 const handler = functions.https.onRequest(async (req, res) => {
+    var _a, _b;
+    console.log('[diagnosis] incoming body =', req.body);
     const { medical_info } = req.body;
     const completion = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
@@ -88,7 +91,12 @@ Responde en formato JSON con esta estructura:
         temperature: 0.7,
         max_tokens: 800
     });
+    // Capture tokens and cost for metrics
+    const tokens = (_b = (_a = completion.usage) === null || _a === void 0 ? void 0 : _a.total_tokens) !== null && _b !== void 0 ? _b : 0;
+    const costUsd = (0, metrics_1.tokensToUsd)(tokens);
+    res.locals.usage = { tokens, costUsd };
     const diagnosis_result = completion.choices[0].message.content;
+    console.log('[diagnosis] result =', diagnosis_result);
     try {
         const parsedDiagnosis = JSON.parse(diagnosis_result || '{}');
         res.json({
@@ -107,5 +115,5 @@ Responde en formato JSON con esta estructura:
         });
     }
 });
-exports.generateDiagnosis = (0, middleware_1.compose)(middleware_1.withCors, middleware_1.withErrorHandling, (fn) => (0, middleware_1.withMetrics)(fn, 'generateDiagnosis'), (0, middleware_1.withValidation)(diagnosisSchema))(handler);
+exports.generateDiagnosis = (0, middleware_1.compose)(middleware_1.withCors, middleware_1.withErrorHandling, (0, metrics_1.withMetrics)('generateDiagnosis'), (0, middleware_1.withValidation)(diagnosisSchema))(handler);
 //# sourceMappingURL=diagnosis.js.map

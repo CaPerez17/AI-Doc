@@ -2,7 +2,8 @@ import * as functions from 'firebase-functions';
 import OpenAI from 'openai';
 import axios from 'axios';
 import { z } from 'zod';
-import { compose, withCors, withErrorHandling, withMetrics, withValidation } from './utils/middleware';
+import { compose, withCors, withErrorHandling, withValidation } from './utils/middleware';
+import { withMetrics, tokensToUsd } from './utils/metrics';
 
 // Obtener la API key de la configuración de Firebase Functions
 const apiKey = functions.config().openai?.key;
@@ -50,6 +51,14 @@ const handler = functions.https.onRequest(async (req, res) => {
     model: "whisper-1",
   });
 
+  // Estimate usage for Whisper (approximation, Whisper pricing is per minute)
+  // For demo purposes, we'll use a simple heuristic
+  const estimatedTokens = Math.ceil(transcription.text.length / 4); // rough approximation
+  const costUsd = tokensToUsd(estimatedTokens);
+  res.locals.usage = { tokens: estimatedTokens, costUsd };
+
+  console.log('[transcribe] transcript =', transcription.text);
+
   // Return structured response
   res.json({ 
     success: true, 
@@ -62,6 +71,6 @@ const handler = functions.https.onRequest(async (req, res) => {
 export const transcribeAudio = compose(
   withCors,
   withErrorHandling,
-  (fn) => withMetrics(fn, 'transcribeAudio'),
+  withMetrics('transcribeAudio'),
   withValidation(transcribeSchema)
 )(handler); 

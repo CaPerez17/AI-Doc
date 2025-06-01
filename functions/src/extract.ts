@@ -1,7 +1,8 @@
 import * as functions from 'firebase-functions';
 import OpenAI from 'openai';
 import { z } from 'zod';
-import { compose, withCors, withErrorHandling, withMetrics, withValidation } from './utils/middleware';
+import { compose, withCors, withErrorHandling, withValidation } from './utils/middleware';
+import { withMetrics, tokensToUsd } from './utils/metrics';
 
 // Obtener la API key de la configuración de Firebase Functions
 const apiKey = functions.config().openai?.key;
@@ -21,6 +22,8 @@ const extractSchema = z.object({
 });
 
 const handler = functions.https.onRequest(async (req, res) => {
+  console.log('[extract] incoming body =', req.body);
+  
   const { text } = req.body;
 
   const completion = await openai.chat.completions.create({
@@ -50,6 +53,11 @@ Responde únicamente con el JSON, sin explicaciones adicionales.`
     max_tokens: 500
   });
 
+  // Capture tokens and cost for metrics
+  const tokens = completion.usage?.total_tokens ?? 0;
+  const costUsd = tokensToUsd(tokens);
+  res.locals.usage = { tokens, costUsd };
+
   const extracted_info = completion.choices[0].message.content;
   
   try {
@@ -74,6 +82,6 @@ Responde únicamente con el JSON, sin explicaciones adicionales.`
 export const extractMedicalData = compose(
   withCors,
   withErrorHandling,
-  (fn) => withMetrics(fn, 'extractMedicalData'),
+  withMetrics('extractMedicalData'),
   withValidation(extractSchema)
 )(handler); 
