@@ -113,6 +113,29 @@ firebase functions:config:set google.speech.key="YOUR_GOOGLE_KEY"
 - **Storage Emulator**: Local file uploads during development without cloud storage costs or external dependencies
 - **Environment Separation**: Dev/prod isolation through Firebase project configs and local environment files
 - **TypeScript Backend**: Type safety for Firebase Functions reduces runtime errors and improves developer experience
+- **Reusable Middleware Layer**: Centralized middleware for CORS, validation, error handling, and metrics collection, improving code maintainability and consistency across functions
+
+## Developer Guide
+
+### Middleware Architecture
+
+The application implements a reusable middleware layer that provides:
+
+1. **CORS Handling**: Consistent cross-origin resource sharing configuration
+2. **Input Validation**: Request payload validation before processing
+3. **Error Handling**: Centralized error management and response formatting
+4. **Metrics Collection**: Performance monitoring and usage statistics
+
+Example usage in a function:
+
+```typescript
+import { withMiddleware } from './utils/middleware';
+
+export const myFunction = withMiddleware(async (req, res) => {
+  // Function logic here
+  // Middleware handles CORS, validation, errors, and metrics
+});
+```
 
 ## Folder Structure
 
