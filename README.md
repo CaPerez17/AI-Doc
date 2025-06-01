@@ -44,7 +44,7 @@ Access the application at: http://localhost:5175
 The following files contain sensitive information and are automatically excluded from version control:
 
 - `functions/.runtimeconfig.json` - Local Firebase Functions config
-- `functions/credentials.json` - Firebase service account credentials  
+- `functions/credentials.json` - Firebase service account credentials
 - `functions/*firebase-adminsdk*.json` - Firebase Admin SDK keys
 - `*service-account*.json` - Google Cloud service account files
 
@@ -53,33 +53,37 @@ The following files contain sensitive information and are automatically excluded
 For advanced features requiring Firebase Admin SDK:
 
 1. **Generate Service Account Key:**
+
    ```bash
    # Go to Firebase Console → Project Settings → Service Accounts
    # Click "Generate new private key" and download the JSON file
    ```
 
 2. **Place Securely:**
+
    ```bash
    # Save the file as functions/credentials.json (already git-ignored)
    # This file will NOT be committed to version control
    ```
 
 3. **Use in Your Code:**
+
    ```typescript
-   import * as admin from 'firebase-admin';
-   const serviceAccount = require('./credentials.json');
-   
+   import * as admin from "firebase-admin";
+   const serviceAccount = require("./credentials.json");
+
    admin.initializeApp({
-     credential: admin.credential.cert(serviceAccount)
+     credential: admin.credential.cert(serviceAccount),
    });
    ```
 
 ### What Happens if Credentials are Missing?
 
 The application will work fine without `credentials.json` for basic functionality:
+
 - ✅ Audio transcription (OpenAI Whisper)
 - ✅ Medical data extraction (OpenAI GPT)
-- ✅ Diagnosis generation (OpenAI GPT)  
+- ✅ Diagnosis generation (OpenAI GPT)
 - ✅ Firebase Storage uploads
 - ❌ Advanced admin operations (if implemented)
 
@@ -114,6 +118,11 @@ firebase functions:config:set google.speech.key="YOUR_GOOGLE_KEY"
 - **Environment Separation**: Dev/prod isolation through Firebase project configs and local environment files
 - **TypeScript Backend**: Type safety for Firebase Functions reduces runtime errors and improves developer experience
 - **Reusable Middleware Layer**: Centralized middleware for CORS, validation, error handling, and metrics collection, improving code maintainability and consistency across functions
+- **Public download URL for audio in prototype** –  
+  For rapid demo purposes we upload the audio to Cloud Storage in a _public-read_ "audio-uploads/" folder and pass that download URL to `transcribeAudio`.  
+  • Simplifies the flow (no auth, no signed URLs, fewer lines of code).  
+  • Keeps onboarding friction low for evaluators.  
+  • Only non-sensitive sample audio is used during the demo.
 
 ## Developer Guide
 
@@ -129,7 +138,7 @@ The application implements a reusable middleware layer that provides:
 Example usage in a function:
 
 ```typescript
-import { withMiddleware } from './utils/middleware';
+import { withMiddleware } from "./utils/middleware";
 
 export const myFunction = withMiddleware(async (req, res) => {
   // Function logic here
@@ -267,3 +276,10 @@ ISC License
 ## Disclaimer
 
 This application is for educational and demonstration purposes only. AI-generated diagnoses should never replace professional medical advice.
+
+## Future Enhancements / Production Considerations
+
+> **Secure audio handling** – In production we would make the bucket private and either  
+> • generate short-lived signed URLs (<5 min) **or**  
+> • pass internal `gs://` paths and download the file via the Admin SDK inside the Cloud Function.  
+> This eliminates public exposure of potentially sensitive medical recordings while preserving the same backend architecture.
