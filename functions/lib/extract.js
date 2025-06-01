@@ -40,6 +40,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.extractMedicalData = void 0;
 const functions = __importStar(require("firebase-functions"));
 const openai_1 = __importDefault(require("openai"));
+const zod_1 = require("zod");
+const middleware_1 = require("./utils/middleware");
 // Obtener la API key de la configuración de Firebase Functions
 const apiKey = (_a = functions.config().openai) === null || _a === void 0 ? void 0 : _a.key;
 if (!apiKey) {
@@ -49,20 +51,19 @@ if (!apiKey) {
 const openai = new openai_1.default({
     apiKey: apiKey
 });
-exports.extractMedicalData = functions.https.onRequest(async (req, res) => {
-    try {
-        const { text } = req.body;
-        if (!text) {
-            res.status(400).json({ error: 'Text is required' });
-            return;
-        }
-        const completion = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: [
-                {
-                    role: "system",
-                    content: `Eres un asistente médico especializado en extraer información médica relevante de transcripciones de audio de pacientes. 
-          
+// Validation schema
+const extractSchema = zod_1.z.object({
+    text: zod_1.z.string().min(1, 'Text is required')
+});
+const handler = functions.https.onRequest(async (req, res) => {
+    const { text } = req.body;
+    const completion = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+            {
+                role: "system",
+                content: `Eres un asistente médico especializado en extraer información médica relevante de transcripciones de audio de pacientes. 
+        
 Extrae y estructura la siguiente información en formato JSON:
 - symptoms: lista de síntomas mencionados
 - duration: duración de los síntomas
@@ -73,31 +74,34 @@ Extrae y estructura la siguiente información en formato JSON:
 - vital_signs: signos vitales si se mencionan
 
 Responde únicamente con el JSON, sin explicaciones adicionales.`
-                },
-                {
-                    role: "user",
-                    content: text
-                }
-            ],
-            temperature: 0.3,
-            max_tokens: 500
+            },
+            {
+                role: "user",
+                content: text
+            }
+        ],
+        temperature: 0.3,
+        max_tokens: 500
+    });
+    const extracted_info = completion.choices[0].message.content;
+    try {
+        const parsedInfo = JSON.parse(extracted_info || '{}');
+        res.json({
+            success: true,
+            data: {
+                extracted_info: parsedInfo
+            }
         });
-        const extracted_info = completion.choices[0].message.content;
-        try {
-            const parsedInfo = JSON.parse(extracted_info || '{}');
-            res.json({ extracted_info: parsedInfo });
-        }
-        catch (parseError) {
-            // Si no se puede parsear como JSON, devolver como texto
-            res.json({ extracted_info: { raw_text: extracted_info } });
-        }
     }
-    catch (error) {
-        console.error('Error extracting medical data:', error);
-        res.status(500).json({
-            error: 'ExtractionError',
-            message: error.message
+    catch (parseError) {
+        // Si no se puede parsear como JSON, devolver como texto
+        res.json({
+            success: true,
+            data: {
+                extracted_info: { raw_text: extracted_info }
+            }
         });
     }
 });
+exports.extractMedicalData = (0, middleware_1.compose)(middleware_1.withCors, middleware_1.withErrorHandling, (fn) => (0, middleware_1.withMetrics)(fn, 'extractMedicalData'), (0, middleware_1.withValidation)(extractSchema))(handler);
 //# sourceMappingURL=extract.js.map

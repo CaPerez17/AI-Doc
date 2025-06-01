@@ -41,6 +41,8 @@ exports.transcribeAudio = void 0;
 const functions = __importStar(require("firebase-functions"));
 const openai_1 = __importDefault(require("openai"));
 const axios_1 = __importDefault(require("axios"));
+const zod_1 = require("zod");
+const middleware_1 = require("./utils/middleware");
 // Obtener la API key de la configuración de Firebase Functions
 const apiKey = (_a = functions.config().openai) === null || _a === void 0 ? void 0 : _a.key;
 if (!apiKey) {
@@ -50,48 +52,38 @@ if (!apiKey) {
 const openai = new openai_1.default({
     apiKey: apiKey
 });
-exports.transcribeAudio = functions.https.onRequest(async (req, res) => {
-    var _a, _b, _c, _d;
+// Validation schema
+const transcribeSchema = zod_1.z.object({
+    url: zod_1.z.string().url('Invalid URL format')
+});
+const handler = functions.https.onRequest(async (req, res) => {
     console.log('🔑 Using configured OpenAI key');
     console.log('📥 URL recibida:', req.body.url);
-    try {
-        const { url } = req.body;
-        if (!url) {
-            res.status(400).json({ error: 'URL is required' });
-            return;
-        }
-        // Download audio file
-        const response = await axios_1.default.get(url, { responseType: 'arraybuffer' });
-        if (response.data && typeof response.data.byteLength === 'number') {
-            console.log('✅ Audio descargado, tamaño:', response.data.byteLength);
-        }
-        else {
-            console.error('❌ El audio descargado no es un ArrayBuffer válido.');
-            res.status(500).json({ error: 'InvalidAudioBuffer' });
-            return;
-        }
-        // Create a File object from the buffer
-        const audioBuffer = Buffer.from(response.data);
-        const audioFile = new File([audioBuffer], 'audio.mp3', { type: 'audio/mpeg' });
-        // Transcribe with OpenAI Whisper
-        const transcription = await openai.audio.transcriptions.create({
-            file: audioFile,
-            model: "whisper-1",
-        });
-        res.json({ transcript: transcription.text });
+    const { url } = req.body;
+    // Download audio file
+    const response = await axios_1.default.get(url, { responseType: 'arraybuffer' });
+    if (response.data && typeof response.data.byteLength === 'number') {
+        console.log('✅ Audio descargado, tamaño:', response.data.byteLength);
     }
-    catch (error) {
-        console.error('❌ Error en Axios al descargar audio:', error.toString());
-        if (error.response) {
-            console.error('Status:', error.response.status, 'Body:', (_a = error.response.data) === null || _a === void 0 ? void 0 : _a.toString());
-        }
-        res.status(500).json({
-            error: 'DownloadError',
-            message: error.toString(),
-            status: (_b = error.response) === null || _b === void 0 ? void 0 : _b.status,
-            body: (_d = (_c = error.response) === null || _c === void 0 ? void 0 : _c.data) === null || _d === void 0 ? void 0 : _d.toString()
-        });
-        return;
+    else {
+        console.error('❌ El audio descargado no es un ArrayBuffer válido.');
+        throw new Error('Invalid audio buffer');
     }
+    // Create a File object from the buffer
+    const audioBuffer = Buffer.from(response.data);
+    const audioFile = new File([audioBuffer], 'audio.mp3', { type: 'audio/mpeg' });
+    // Transcribe with OpenAI Whisper
+    const transcription = await openai.audio.transcriptions.create({
+        file: audioFile,
+        model: "whisper-1",
+    });
+    // Return structured response
+    res.json({
+        success: true,
+        data: {
+            transcript: transcription.text
+        }
+    });
 });
+exports.transcribeAudio = (0, middleware_1.compose)(middleware_1.withCors, middleware_1.withErrorHandling, (fn) => (0, middleware_1.withMetrics)(fn, 'transcribeAudio'), (0, middleware_1.withValidation)(transcribeSchema))(handler);
 //# sourceMappingURL=transcribe.js.map

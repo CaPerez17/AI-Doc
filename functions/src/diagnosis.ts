@@ -1,5 +1,7 @@
 import * as functions from 'firebase-functions';
 import OpenAI from 'openai';
+import { z } from 'zod';
+import { compose, withCors, withErrorHandling, withMetrics, withValidation } from './utils/middleware';
 
 // Obtener la API key de la configuración de Firebase Functions
 const apiKey = functions.config().openai?.key;
@@ -13,22 +15,21 @@ const openai = new OpenAI({
   apiKey: apiKey
 });
 
-export const generateDiagnosis = functions.https.onRequest(async (req, res) => {
-  try {
-    const { medical_info } = req.body;
+// Validation schema
+const diagnosisSchema = z.object({
+  medical_info: z.object({}).passthrough() // Allow any medical info object
+});
 
-    if (!medical_info) {
-      res.status(400).json({ error: 'Medical info is required' });
-      return;
-    }
+const handler = functions.https.onRequest(async (req, res) => {
+  const { medical_info } = req.body;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: `Eres un médico general con experiencia en diagnóstico clínico. 
-          
+  const completion = await openai.chat.completions.create({
+    model: "gpt-3.5-turbo",
+    messages: [
+      {
+        role: "system",
+        content: `Eres un médico general con experiencia en diagnóstico clínico. 
+        
 Basándote en la información médica proporcionada, genera:
 1. Un diagnóstico diferencial (posibles diagnósticos ordenados por probabilidad)
 2. Un plan de tratamiento inicial
@@ -44,34 +45,39 @@ Responde en formato JSON con esta estructura:
   "recommendations": ["recomendación1", "recomendación2", "recomendación3"],
   "disclaimer": "mensaje recordando consultar médico real"
 }`
-        },
-        {
-          role: "user",
-          content: `Información médica del paciente: ${JSON.stringify(medical_info)}`
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 800
-    });
+      },
+      {
+        role: "user",
+        content: `Información médica del paciente: ${JSON.stringify(medical_info)}`
+      }
+    ],
+    temperature: 0.7,
+    max_tokens: 800
+  });
 
-    const diagnosis_result = completion.choices[0].message.content;
-    
-    try {
-      const parsedDiagnosis = JSON.parse(diagnosis_result || '{}');
-      res.json(parsedDiagnosis);
-    } catch (parseError) {
-      // Si no se puede parsear como JSON, devolver como texto
-      res.json({ 
+  const diagnosis_result = completion.choices[0].message.content;
+  
+  try {
+    const parsedDiagnosis = JSON.parse(diagnosis_result || '{}');
+    res.json({ 
+      success: true, 
+      data: parsedDiagnosis 
+    });
+  } catch (parseError) {
+    // Si no se puede parsear como JSON, devolver como texto
+    res.json({ 
+      success: true, 
+      data: {
         diagnosis: diagnosis_result,
         disclaimer: "Este es un diagnóstico generado por IA. Consulte siempre con un médico real."
-      });
-    }
-
-  } catch (error: any) {
-    console.error('Error generating diagnosis:', error);
-    res.status(500).json({ 
-      error: 'DiagnosisError', 
-      message: error.message 
+      }
     });
   }
-}); 
+});
+
+export const generateDiagnosis = compose(
+  withCors,
+  withErrorHandling,
+  (fn) => withMetrics(fn, 'generateDiagnosis'),
+  withValidation(diagnosisSchema)
+)(handler); 
