@@ -336,7 +336,7 @@ This application is for educational and demonstration purposes only. AI-generate
 > • pass internal `gs://` paths and download the file via the Admin SDK inside the Cloud Function.  
 > This eliminates public exposure of potentially sensitive medical recordings while preserving the same backend architecture.
 
-## Technical Decision Making & Senior Engineering Perspective
+## Technical Decision Making & Engineering Perspective
 
 ### Architecture Decision Records (ADRs)
 
@@ -450,7 +450,7 @@ Projected Monthly Cost (1000 consultations):
 
 ### Code Quality & Maintainability
 
-#### Current Code Quality Score: B+ (Areas for improvement)
+#### Current Code Quality: (Areas for improvement)
 - ✅ TypeScript adoption for type safety
 - ✅ Consistent error handling patterns
 - ✅ Environment-based configuration
@@ -462,7 +462,7 @@ Projected Monthly Cost (1000 consultations):
 2. **Medium Priority**: Implement request/response schema validation
 3. **Low Priority**: Refactor hardcoded prompts to configurable templates
 
-### Senior Engineering Insights
+### Engineering Insights
 
 #### What I'd Do Differently at Scale
 1. **Architecture**: Event-driven with pub/sub for processing pipeline
@@ -476,4 +476,3 @@ Projected Monthly Cost (1000 consultations):
 - **Cost management**: Proactive monitoring over reactive optimization
 - **Product strategy**: Focus on workflow integration over standalone features
 
-This demonstrates the balance between technical excellence and product thinking that defines senior engineering leadership.
